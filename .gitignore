@@ -1,0 +1,5 @@
+.pdm*
+.pytest*
+__pycache__
+.venv
+.pdm-python
