@@ -5,19 +5,20 @@ from mpiwrapper import mpi
 from moe import SimpleMoE, MoE_EP, MoE_TP
 import time
 
+
 # Example usage
 def run_moe(
-    moe_type="tp", 
-    batch_size=8, 
-    feature_dim=32, 
-    hidden_dim=128, 
-    output_dim=64, 
+    moe_type="tp",
+    batch_size=8,
+    feature_dim=32,
+    hidden_dim=128,
+    output_dim=64,
     num_experts=None,
-    topk=2
+    topk=2,
 ):
     """
     Unified function to run different types of MoE models
-    
+
     Args:
         moe_type: Type of MoE to run ("simple", "ep", or "tp")
         batch_size: Number of samples in the batch
@@ -28,7 +29,7 @@ def run_moe(
     """
     # Get number of experts based on MPI world size
     num_experts = mpi.get_size()
-    
+
     # Generate input data
     np.random.seed(0)
     X = np.random.randn(batch_size, feature_dim)
@@ -40,26 +41,24 @@ def run_moe(
         else:
             X = None
         X = mpi.comm.bcast(X, root=0)
-    
+
     # Create appropriate MoE model
-    model_class = {
-        "simple": SimpleMoE,
-        "ep": MoE_EP,
-        "tp": MoE_TP
-    }.get(moe_type, MoE_TP)
-    
+    model_class = {"simple": SimpleMoE, "ep": MoE_EP, "tp": MoE_TP}.get(
+        moe_type, MoE_TP
+    )
+
     moe = model_class(
         input_dim=feature_dim,
         hidden_dim=hidden_dim,
         output_dim=output_dim,
         num_experts=num_experts,
-        topk=topk
+        topk=topk,
     )
-    
+
     # Run forward pass
     # Warm up
     _ = moe(X)
-    
+
     # Measure time
     N = 3
     start_time = time.time()
@@ -67,17 +66,14 @@ def run_moe(
         outputs = moe(X)
     end_time = time.time()
     avg_duration_ms = 1000 * (end_time - start_time) / N
-    
+
     # Print timing information
     if mpi.get_rank() == 0:
         print(f"Forward pass time for {moe_type} MoE: {avg_duration_ms} ms")
 
-    return dict(
-        outputs=outputs,
-        avg_duration_ms=avg_duration_ms
-    )
-    
-    
+    return dict(outputs=outputs, avg_duration_ms=avg_duration_ms)
+
+
 def benchmark_moe():
     # Test simple MoE
     simple_result = run_moe(moe_type="simple")
