@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def split_data(
     x_train: np.ndarray,
     y_train: np.ndarray,
@@ -42,4 +43,14 @@ def split_data(
         - Do not shuffle the data indices as shuffling will be done later.
     """
 
-    #TODO: Your code here
+    # TODO: Your code here
+    split_x_train = None
+    split_y_train = None
+    chunk_x_sz = x_train.shape[0] // dp_size
+    chunk_y_sz = y_train.shape[0] // dp_size
+    for i in range(dp_size):
+        if (rank // mp_size) % dp_size == i:
+            split_x_train = x_train[i * chunk_x_sz : (i + 1) * chunk_x_sz]
+            split_y_train = y_train[i * chunk_y_sz : (i + 1) * chunk_y_sz]
+
+    return split_x_train, split_y_train
