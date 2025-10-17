@@ -6,6 +6,7 @@ from src.position_encoding import (
     RotaryEmbedding,
 )  # 假设你有对应的 PyTorch RotaryEmbedding 实现
 from tests.utils import *
+from torchtune.modules import RotaryPositionalEmbeddings
 
 
 # llama的实现
@@ -85,6 +86,7 @@ def RotaryEmbedding_helper(
         user_layer = RotaryEmbedding(
             HEAD_DIM, MAX_SEQ_LEN, BASE, traditional=traditional
         ).to(device)
+
         x = torch.rand(
             BATCH_SIZE, SEQ_LEN, NUM_HEADS, HEAD_DIM, device=device, dtype=precision
         )
@@ -92,20 +94,25 @@ def RotaryEmbedding_helper(
         if with_offset:
             input_pos = np.random.randint(0, MAX_SEQ_LEN - SEQ_LEN)
             input_pos_user = slice(input_pos, input_pos + SEQ_LEN)
+            input_pos_ref = torch.arange(input_pos, input_pos + SEQ_LEN, device=device)
         else:
             input_pos_user = None
+            input_pos_ref = None
             input_pos = 0
 
-        # 根据传统/非传统模式选择不同的参考实现
         freqs_cis = precompute_freqs_cis(HEAD_DIM, MAX_SEQ_LEN, BASE).to(device)
         if input_pos > 0:
             freqs_cis = freqs_cis[input_pos : input_pos + SEQ_LEN]
         else:
             freqs_cis = freqs_cis[:SEQ_LEN]
         if traditional:
-            reference_output = apply_rotary_emb(x, freqs_cis)
+            ref_layer = RotaryPositionalEmbeddings(HEAD_DIM, MAX_SEQ_LEN, BASE).to(
+                device
+            )
+            reference_output = ref_layer(x, input_pos=input_pos_ref)
         else:
             reference_output = apply_rotary_emb_qwen2(x, freqs_cis)
+
         user_output = user_layer(x, input_pos_user).to(device)
 
         atol = 5e-6 if precision == torch.float32 else 1e-3
