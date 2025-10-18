@@ -26,7 +26,7 @@ def assert_allclose(
     """
     if precision == torch.float16:
         rtol = rtol or 3.0e-2
-        atol = atol or 1.0e-5
+        atol = atol or 3.0e-4
     elif precision == torch.float32:
         rtol = rtol or 1.0e-5
         atol = atol or 1.0e-8

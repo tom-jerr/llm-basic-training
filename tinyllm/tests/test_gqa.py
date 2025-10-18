@@ -2,7 +2,7 @@ import pytest
 import torch
 from .utils import *
 from src.attention import scaled_dot_product_attention_grouped, causal_mask
-from src.qwen2 import Qwen2MultiHeadAttention
+import src.qwen2 as qwen2
 import math
 
 
@@ -218,7 +218,10 @@ def test_task_3_qwen2_grouped_query_attention(
     # Note: You'll need to adapt the Qwen2 model import for PyTorch
     # This is a placeholder - adjust based on your actual implementation
     from transformers import Qwen2Config
-    from transformers.models.qwen2.modeling_qwen2 import Qwen2Attention
+    from transformers.models.qwen2.modeling_qwen2 import (
+        Qwen2Attention,
+        Qwen2RotaryEmbedding,
+    )
 
     config = Qwen2Config(
         hidden_size=hidden_size,
@@ -232,7 +235,23 @@ def test_task_3_qwen2_grouped_query_attention(
         max_position_embeddings=max_seq_len,
     )
 
-    torch_attention = Qwen2Attention(config).to(device=dev, dtype=dtype)
+    config._attn_implementation = "sdpa"  # 这里可以使用causal mask
+    rotary_emb = Qwen2RotaryEmbedding(config)
+    torch_attention = Qwen2Attention(config, layer_idx=0).to(device=dev, dtype=dtype)
+
+    torch.manual_seed(42)
+    x = torch.rand(batch_size, seq_len, hidden_size, dtype=dtype, device=dev) * 2 - 1
+    position_ids = torch.arange(seq_len, device=dev).unsqueeze(0)
+    position_embeddings = rotary_emb(x, position_ids)
+
+    torch_output = torch_attention(
+        x,
+        position_embeddings,
+        attention_mask=None,
+        is_causal=True if mask == "causal" else False,
+    )[0].to(device=dev, dtype=dtype)
+
+    # Extract weights and biases
     wq = torch_attention.q_proj.weight
     wk = torch_attention.k_proj.weight
     wv = torch_attention.v_proj.weight
@@ -246,9 +265,6 @@ def test_task_3_qwen2_grouped_query_attention(
     bv = (
         torch_attention.v_proj.bias if hasattr(torch_attention.v_proj, "bias") else None
     )
-
-    torch.manual_seed(42)
-    x = torch.rand(batch_size, seq_len, hidden_size, dtype=dtype, device=dev) * 2 - 1
 
     user_attention = qwen2.Qwen2MultiHeadAttention(
         hidden_size=hidden_size,
@@ -265,17 +281,6 @@ def test_task_3_qwen2_grouped_query_attention(
         theta=theta,
     )
 
-    user_output = user_attention(x, mask=mask)
+    user_output = user_attention(x, mask=mask).to(device=dev, dtype=dtype)
 
-    # Prepare attention mask for torch attention
-    if mask == "causal":
-        attention_mask = torch.triu(
-            torch.ones(seq_len, seq_len, dtype=torch.bool, device=dev), diagonal=1
-        )
-        attention_mask = attention_mask.masked_fill(attention_mask, float("-inf"))
-    else:
-        attention_mask = None
-
-    torch_output = torch_attention(x, attention_mask=attention_mask)[0]
-
-    assert_allclose(user_output, torch_output, dtype=dtype)
+    assert_allclose(user_output, torch_output, precision=dtype)

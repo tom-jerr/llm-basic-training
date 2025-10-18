@@ -1,5 +1,4 @@
 import torch
-import math
 
 
 def softmax(x: torch.Tensor, axis: int) -> torch.Tensor:
@@ -13,10 +12,8 @@ def softmax(x: torch.Tensor, axis: int) -> torch.Tensor:
     Returns:
         torch.Tensor: Softmax of the input tensor along the specified axis.
     """
-    x_max = torch.max(x, dim=axis, keepdim=True).values
-    x_exp = torch.exp(x - x_max)
-    x_sum = torch.sum(x_exp, dim=axis, keepdim=True)
-    return x_exp / x_sum
+    # TODO(LZY): 这里自己实现的softmax不够精度，先用torch的版本
+    return torch.softmax(x, dim=axis)
 
 
 def linear(

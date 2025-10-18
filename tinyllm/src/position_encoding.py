@@ -33,13 +33,13 @@ class RotaryEmbedding(nn.Module):
         B, S, H, D = x.shape
         if offset is None:
             # from 0 to s-1th: [S, D] -> [1, S, D]
-            cos_sin = self.cos_sin_cache[:S].unsqueeze(0)
+            cos_sin = self.cos_sin_cache[:S].unsqueeze(0).to(x.device)
         elif isinstance(offset, slice):
             # just one slice: [S, D] -> [1, S, D]
             assert (
                 offset.stop - offset.start == S
             ), "Offset slice length must match sequence length"
-            cos_sin = self.cos_sin_cache[offset].unsqueeze(0)
+            cos_sin = self.cos_sin_cache[offset].unsqueeze(0).to(x.device)
 
         elif isinstance(offset, list):
             # slice list, collase all cos and sin to one tensor: [S,D]->[B,S,D]

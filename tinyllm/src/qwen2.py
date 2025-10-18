@@ -26,66 +26,70 @@ class Qwen2MultiHeadAttention(nn.Module):
         max_seq_len: int = 32768,
         theta: int = 1000000,
     ):
-        # super().__init__()
-        # self.hidden_size = hidden_size
-        # self.num_heads = num_heads
-        # self.num_kv_heads = num_kv_heads
-        # assert hidden_size % num_heads == 0, (
-        #     f"hidden_size {hidden_size} must be divisible by num_heads {num_heads}"
-        # )
-        # assert num_heads % num_kv_heads == 0, (
-        #     f"num_heads {num_heads} must be divisible by num_kv_heads {num_kv_heads}"
-        # )
-        # self.head_dim = hidden_size // num_heads
-        # self.scale = 1.0 / (self.head_dim ** 0.5)
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
+        assert (
+            hidden_size % num_heads == 0
+        ), f"hidden_size {hidden_size} must be divisible by num_heads {num_heads}"
+        assert (
+            num_heads % num_kv_heads == 0
+        ), f"num_heads {num_heads} must be divisible by num_kv_heads {num_kv_heads}"
+        self.head_dim = hidden_size // num_heads
+        self.scale = 1.0 / (self.head_dim**0.5)
+        # Trainable parameters
+        self.register_buffer("wq", wq)
+        self.register_buffer("wk", wk)
+        self.register_buffer("wv", wv)
+        self.register_buffer("wo", wo)
+        self.register_buffer("bq", bq)
+        self.register_buffer("bk", bk)
+        self.register_buffer("bv", bv)
 
-        # # Register as buffers (non-trainable parameters)
-        # self.register_buffer('wq', wq)
-        # self.register_buffer('wk', wk)
-        # self.register_buffer('wv', wv)
-        # self.register_buffer('wo', wo)
-        # self.register_buffer('bq', bq)
-        # self.register_buffer('bk', bk)
-        # self.register_buffer('bv', bv)
-
-        # self.rope = RoPE(self.head_dim, max_seq_len, theta)
-        pass
+        self.rope = RotaryEmbedding(
+            self.head_dim, max_seq_len, theta, traditional=False
+        )  # Qwen2 uses nontraditional RoPE
 
     def forward(
         self,
         x: torch.Tensor,
         mask: Optional[torch.Tensor | str] = None,
     ) -> torch.Tensor:
-        # B, L, _ = x.shape
+        """
+        Args:
+            x: (B, L, E)
+            mask: (B, 1, L, S) or "causal" or None
+        """
+        B, L, _ = x.shape
 
-        # projection_q = linear(x, self.wq, bias=self.bq).reshape(
-        #     B, L, self.num_heads, self.head_dim
-        # )
-        # projection_k = linear(x, self.wk, bias=self.bk).reshape(
-        #     B, L, self.num_kv_heads, self.head_dim
-        # )
-        # projection_v = linear(x, self.wv, bias=self.bv).reshape(
-        #     B, L, self.num_kv_heads, self.head_dim
-        # )
+        projection_q = linear(x, self.wq, bias=self.bq).reshape(
+            B, L, self.num_heads, self.head_dim
+        )
+        projection_k = linear(x, self.wk, bias=self.bk).reshape(
+            B, L, self.num_kv_heads, self.head_dim
+        )
+        projection_v = linear(x, self.wv, bias=self.bv).reshape(
+            B, L, self.num_kv_heads, self.head_dim
+        )
 
-        # projection_q = self.rope(projection_q, offset=slice(0, L))
-        # projection_k = self.rope(projection_k, offset=slice(0, L))
+        projection_q = self.rope(projection_q, offset=slice(0, L))
+        projection_k = self.rope(projection_k, offset=slice(0, L))
 
-        # projection_q = projection_q.transpose(1, 2)  # (B, num_heads, L, head_dim)
-        # projection_k = projection_k.transpose(1, 2)  # (B, num_kv_heads, L, head_dim)
-        # projection_v = projection_v.transpose(1, 2)  # (B, num_kv_heads, L, head_dim)
+        projection_q = projection_q.transpose(1, 2)  # (B, num_heads, L, head_dim)
+        projection_k = projection_k.transpose(1, 2)  # (B, num_kv_heads, L, head_dim)
+        projection_v = projection_v.transpose(1, 2)  # (B, num_kv_heads, L, head_dim)
 
-        # x = scaled_dot_product_attention_grouped(
-        #     projection_q.float(),
-        #     projection_k.float(),
-        #     projection_v.float(),
-        #     scale=self.scale,
-        #     mask=mask,
-        # ).to(x.dtype)
+        x = scaled_dot_product_attention_grouped(
+            projection_q.float(),
+            projection_k.float(),
+            projection_v.float(),
+            scale=self.scale,
+            mask=mask,
+        ).to(x.dtype)
 
-        # x = x.transpose(1, 2).reshape(B, L, self.hidden_size)
-        # return linear(x, self.wo)
-        pass
+        x = x.transpose(1, 2).reshape(B, L, self.hidden_size)
+        return linear(x, self.wo)
 
 
 class Qwen2MLP(nn.Module):
