@@ -110,6 +110,7 @@ class Qwen2MLP(nn.Module):
         self.register_buffer("w_down", w_down)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """MLP(x)=(SiLU(W_gate(x))⊙W_up(x))W_down"""
         return linear(silu(linear(x, self.w_gate)) * linear(x, self.w_up), self.w_down)
 
 
