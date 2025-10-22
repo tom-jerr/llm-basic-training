@@ -1,0 +1,12 @@
+file(GLOB CUDA_LIB_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.cu
+)
+
+add_library(vector_add STATIC ${CUDA_LIB_SOURCES})
+
+set_target_properties(vector_add PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_RESOLVE_DEVICE_SYMBOLS ON
+)
+
+
