@@ -1,6 +1,7 @@
-# Tiny-llm
+# LLM Basic Training
 
-llm study for group
+llm basic training 的代码仓库，用来进行大语言模型的基础代码训练和知识回顾。
 
-- `src`: skyzh 的 tiny-llm 的 cuda 版本，但是从 0 开始重新构建
 - `cse234`: cse234 的作业，用来进行知识的回顾
+- `cuda_examples`: cuda 的一些例子代码，包括优化和分析瓶颈的过程
+- `triton_examples`: triton 的一些例子代码
