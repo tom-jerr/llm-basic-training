@@ -4,3 +4,5 @@ __pycache__
 .venv
 build
 .cache
+*.ncu-rep
+compile_flags.txt
