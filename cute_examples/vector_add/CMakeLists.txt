@@ -1,0 +1,5 @@
+file(GLOB_RECURSE SRC_FILES *.cu)
+foreach(src_file ${SRC_FILES})
+  get_filename_component(src_filename ${src_file} NAME_WE)
+  add_executable(${src_filename} ${src_file})
+endforeach()
